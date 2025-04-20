@@ -5,7 +5,6 @@ var http = require('http').createServer(app);
 var io = require('socket.io')(http);
 const {MongoClient, GridFSBucket} = require('mongodb')
 var multer = require('multer');
-//var {GridFsStorage} = require('multer-gridfs-storage');
 var path = require("path")
 var mongoose = require('mongoose');
 
