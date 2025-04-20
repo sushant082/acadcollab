@@ -2,7 +2,7 @@
 Group project for Modern Web Technologies Spring 25, NMSU CS
 
 # Running 
-Dependencies: express, mongoose, multer, mongodb, socket.io, node.js
+*Dependencies: express, mongoose, multer, mongodb, socket.io, node.js*
 With dependencies installed, run "node server.js" and navigate to localhost:3000 to access the home page. 
 
 # Current features
