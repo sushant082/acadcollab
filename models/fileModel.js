@@ -1,6 +1,6 @@
 var mongoose = require("mongoose");
 
-var albumSchema = new mongoose.Schema({
+var fileSchema = new mongoose.Schema({
     originalName: String,
     storedName: String,
     path: String, 
@@ -10,10 +10,6 @@ var albumSchema = new mongoose.Schema({
     }
 });
 
-albumSchema.statics.listAllAlbums = function() {
-    return this.find({})
-};
+var fileModel = mongoose.model('file', fileSchema);
 
-var albumModel = mongoose.model('album', albumSchema);
-
-module.exports = albumModel;
+module.exports = fileModel;
