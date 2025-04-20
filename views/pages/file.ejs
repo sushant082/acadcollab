@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Uploaded Files</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+</head>
+<body>
+    <%- include('../partials/header') %>
+    <h1>Files in Database</h1>
+
+    <ul>
+        <% files.forEach(file => { %>
+            <li>
+                <a href="/file/<%= file.filename %>" download>
+                    <%= file.filename %>
+                </a> (Uploaded on: <%= file.uploadDate.toDateString() %>)
+            </li>
+        <% }) %>
+    </ul>
+
+    <h2>Upload a new file</h2>
+    <form action="/file/upload" method="POST" enctype="multipart/form-data">
+        <input type="file" name="uploadedFile" required />
+        <button type="submit">Upload</button>
+    </form>
+</body>
+</html>

@@ -1,0 +1,33 @@
+
+
+ul {
+    list-style-type: none;
+}
+
+
+
+body {
+    text-align: center;
+    font-family: "Roboto", sans-serif;
+}
+#headerUL {
+    list-style-type: none;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-evenly;
+}
+
+.headerItem{
+    background-color: grey;
+    padding: 10px;
+    
+    
+}
+
+.headerItem:hover {
+    box-shadow: inset 2px 2px 2px black;
+}
+.headerA {
+    text-decoration: none;
+    color: black;
+}
