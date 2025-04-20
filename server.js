@@ -15,9 +15,9 @@ main().then(() => console.log("Connected to mongoDB")).catch(error => console.lo
 const conn = mongoose.connection;
 
 // set up models
-var fileModel = require("./models/fileModel");
+var fileModel = require("./models/fileModel"); // NEED TO IMPLEMENT
 var groupModel = require("./models/groupModel");
-var userModel = require("./models/userModel");
+var userModel = require("./models/userModel"); // NEED TO IMPLEMENT
 
 // set up gfs for file storage
 let gfs;
@@ -150,7 +150,7 @@ app.get('/file/:filename', async (req, res) => {
         if (!files) {
             return res.status(404).send("File not found");
         }
-        // download stream
+        // download stream to download file
         res.set("Content-Type", files[0].contentType);
         const readStream = gfs.openDownloadStreamByName(req.params.filename);
         readStream.pipe(res);
