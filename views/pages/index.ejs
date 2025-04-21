@@ -1,13 +1,59 @@
-<html>
-    <head>
-        <link rel="stylesheet" type="text/css" href="style.css">
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
-    </head>
-    <body>
-        <%- include('../partials/header') %>
-        <h1>Welcome to our Academic Collaboration Platform!</h1>
-        <p>This is the home page, it will be used for signing in.</p>
-    </body>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AcadCollab - Sign In</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <%- include('../partials/header') %>
+
+  <h1>AcadCollab</h1>
+
+  <% if (typeof error !== 'undefined') { %>
+    <p style="color: red;"><%= error %></p>
+  <% } %>
+
+  <!-- Sign In Form -->
+  <div id="signInForm" class="form-container active">
+    <h2>Sign In</h2>
+    <form method="POST" action="/login">
+      <label for="login-username">Username:</label><br>
+      <input type="text" id="login-username" name="username" required><br><br>
+
+      <label for="login-password">Password:</label><br>
+      <input type="password" id="login-password" name="password" required><br><br>
+
+      <button type="submit">Log In</button>
+    </form>
+    <p class="toggle" onclick="showSignUp()">Don't have an account? Create one</p>
+  </div>
+
+  <!-- Sign Up Form -->
+  <div id="signUpForm" class="form-container">
+    <h2>Create Account</h2>
+    <form method="POST" action="/signup">
+      <label for="signup-username">Username:</label><br>
+      <input type="text" id="signup-username" name="username" required><br><br>
+
+      <label for="signup-password">Password:</label><br>
+      <input type="password" id="signup-password" name="password" required><br><br>
+
+      <button type="submit">Sign Up</button>
+    </form>
+    <p class="toggle" onclick="showSignIn()">Already have an account? Sign in</p>
+  </div>
+
+  <script>
+    function showSignUp() {
+      document.getElementById('signInForm').classList.remove('active');
+      document.getElementById('signUpForm').classList.add('active');
+    }
+
+    function showSignIn() {
+      document.getElementById('signUpForm').classList.remove('active');
+      document.getElementById('signInForm').classList.add('active');
+    }
+  </script>
+</body>
 </html>

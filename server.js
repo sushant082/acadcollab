@@ -3,9 +3,9 @@ var mongoose = require('mongoose');
 var app = express();
 var http = require('http').createServer(app);
 var io = require('socket.io')(http);
-var {MongoClient, GridFSBucket} = require('mongodb')
+var session = require("express-session");
 var multer = require('multer');
-var path = require("path")
+var path = require("path");
 
 // connect to mongoose
 async function main() {
@@ -17,90 +17,165 @@ const conn = mongoose.connection;
 // set up models
 var fileModel = require("./models/fileModel"); // NEED TO IMPLEMENT
 var groupModel = require("./models/groupModel");
-var userModel = require("./models/userModel"); // NEED TO IMPLEMENT
+var userModel = require("./models/userModel");
 
 // set up gfs for file storage
 let gfs;
 conn.once('open', () => {
     console.log("MongoDB connection open");
-    // initialize gfs bucket
     gfs = new mongoose.mongo.GridFSBucket(conn.db, {
         bucketName: 'uploads'
     });
 });
-// set up multer for file uploading
+
+// multer for file uploads
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-// set up app
+// session middleware
+app.use(session({
+    secret: "secureSessionSecret",
+    resave: false,
+    saveUninitialized: true
+}));
+
+// app config
 app.set("view engine", "ejs");
-app.use(express.urlencoded( {extended: true}));
+app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.static(__dirname));
 
-// default route
-app.get("/", function(req, res) {
-    res.render("pages/index");
+// middleware to inject user into all views
+app.use((req, res, next) => {
+    res.locals.user = req.session.user;
+    next();
 });
 
-// route to access chat
+// home route
+app.get("/", function (req, res) {
+    if (req.session.user) {
+        res.render("pages/home");
+    } else {
+        res.render("pages/index", { error: null });
+    }
+});
+
+// login
+app.post("/login", async (req, res) => {
+    const { username, password } = req.body;
+    if (!username || !password) {
+        return res.render("pages/index", { error: "All fields are required" });
+    }
+
+    try {
+        const user = await userModel.findOne({ username });
+        if (!user || !(await user.comparePassword(password))) {
+            return res.render("pages/index", { error: "Invalid username or password" });
+        }
+
+        req.session.user = { username: user.username };
+        res.redirect("/chat");
+    } catch (err) {
+        console.error("Login error:", err);
+        res.status(500).send("Internal server error");
+    }
+});
+
+// signup
+app.post("/signup", async (req, res) => {
+    const { username, password } = req.body;
+    if (!username || !password) {
+        return res.render("pages/index", { error: "All fields are required" });
+    }
+
+    try {
+        const existing = await userModel.findOne({ username });
+        if (existing) {
+            return res.render("pages/index", { error: "Username already exists" });
+        }
+
+        const user = new userModel({ username, password });
+        await user.save();
+
+        req.session.user = { username: user.username };
+        res.redirect("/chat");
+    } catch (err) {
+        console.error("Signup error:", err);
+        res.status(500).send("Internal server error");
+    }
+});
+
+// logout
+app.get("/logout", (req, res) => {
+    req.session.destroy(() => {
+        res.redirect("/");
+    });
+});
+
+// chat
 app.get("/chat", function (req, res) {
-    //console.log("chat")
+    if (!req.session.user) return res.redirect("/");
     res.render("pages/chat");
 });
 
-// route to access groups 
-app.get("/groups", async function(req, res) {
+// groups
+
+app.get("/groups", async function (req, res) {
     try {
-        var groups = await groupModel.find({});
-        res.render("pages/groups", { groups });
+        const groups = await groupModel.find({});
+        const users = await userModel.find({}, "username");
+
+        res.render("pages/groups", {
+            groups,
+            users,
+            error: null
+        });
     } catch (err) {
         console.error("Error fetching groups:", err);
         res.status(500).send("Error fetching groups");
     }
 });
 
-// upload new group
-app.post("/groups", async function(req, res) {
-    var groupName = req.body.groupName;
-    // check for group name
-    if (!groupName){
-        return res.status(400).send("Group name is required");
+
+
+app.post("/groups", async function (req, res) {
+    const groupName = req.body.groupName;
+    const username = req.session.user?.username;
+
+    if (!groupName || !username) {
+        return res.status(400).send("Group name and user required");
     }
+
     try {
-        // make sure name isn't already in database
-        var existingGroup = await groupModel.findOne({name: groupName});
+        const existingGroup = await groupModel.findOne({ name: groupName });
         if (existingGroup) {
-            var groups = await groupModel.find({});
+            const groups = await groupModel.find({});
             return res.render("pages/groups", {
-                groups, 
+                groups,
                 error: "Group name already exists"
-            })
+            });
         }
-        // upload group to database
-        var newGroup = new groupModel({name: groupName});
+
+        const newGroup = new groupModel({
+            name: groupName,
+            owner: username,
+            members: [username] // owner is first member
+        });
+
         await newGroup.save();
         res.redirect("/groups");
-    }
-    catch (err) {
+    } catch (err) {
         console.error("Error creating group: ", err);
         res.status(500).send("Failed to create group");
     }
 });
 
 
-
-// Route to display all files
+// files
 app.get('/file', async (req, res) => {
-
-    // make sure gfs bucket is set up
-    if (!gfs) 
-        return res.status(503).send("Error: GridFS Bucket not set up");
-
+    if (!gfs) return res.status(503).send("Error: GridFS Bucket not set up");
     try {
-        // show all files
-        var allFiles = gfs.find({});
-        var files = await allFiles.toArray();
+        var files = await gfs.find({}).toArray();
         res.render("pages/file", { files });
     } catch (err) {
         console.error("Error fetching files:", err);
@@ -108,49 +183,116 @@ app.get('/file', async (req, res) => {
     }
 });
 
-// route to upload new file
 app.post("/file/upload", upload.single("uploadedFile"), (req, res) => {
-    
-    // check for file
     if (!req.file) {
         return res.status(400).send("No file uploaded");
     }
 
-    // open upload stream
     const uploadStream = gfs.openUploadStream(req.file.originalname, {
         contentType: req.file.mimetype
     });
     uploadStream.end(req.file.buffer);
 
-    // success
     uploadStream.on("finish", () => {
         console.log("File uploaded successfully!");
-        res.redirect("/file"); // Redirect to file list page
+        res.redirect("/file");
     });
 
-    // upload failure
     uploadStream.on("error", (err) => {
         console.log("Error uploading file:", err);
         res.status(500).send("Error uploading file");
     });
 });
 
-
-
-// route to download file
-app.get('/file/:filename', async (req, res) => {
-
-    // make sure gfs bucket is set up for file storage
-    if (!gfs) 
-        return res.status(503).send("Error: GridFS Bucket not set up");
+app.post("/groups/:id/remove-member", async function (req, res) {
+    const groupId = req.params.id;
+    const username = req.session.user?.username;
+    const memberToRemove = req.body.memberUsername;
 
     try {
-        // get files 
+        const group = await groupModel.findById(groupId);
+        if (!group || group.owner !== username) {
+            return res.status(403).send("Unauthorized");
+        }
+
+        group.members = group.members.filter(m => m !== memberToRemove);
+        await group.save();
+
+        res.redirect("/groups");
+    } catch (err) {
+        console.error("Error removing member:", err);
+        res.status(500).send("Internal server error");
+    }
+});
+
+const bcrypt = require("bcrypt"); // already required in userModel.js
+
+app.post("/groups/:id/delete", async function (req, res) {
+    const groupId = req.params.id;
+    const currentUser = req.session.user?.username;
+    const password = req.body.password;
+
+    try {
+        const group = await groupModel.findById(groupId);
+        if (!group || group.owner !== currentUser) {
+            return res.status(403).send("Unauthorized");
+        }
+
+        const user = await userModel.findOne({ username: currentUser });
+        const isMatch = await user.comparePassword(password);
+
+        if (!isMatch) {
+            const groups = await groupModel.find({});
+            const users = await userModel.find({}, "username");
+            return res.render("pages/groups", {
+                groups,
+                users,
+                error: "Incorrect password. Group not deleted."
+            });
+        }
+
+        await groupModel.findByIdAndDelete(groupId);
+        res.redirect("/groups");
+    } catch (err) {
+        console.error("Error deleting group:", err);
+        res.status(500).send("Failed to delete group");
+    }
+});
+
+
+app.post("/groups/:id/add-member", async function (req, res) {
+    const groupId = req.params.id;
+    const username = req.session.user?.username;
+    const memberToAdd = req.body.memberUsername;
+
+    try {
+        const group = await groupModel.findById(groupId);
+
+        if (!group) return res.status(404).send("Group not found");
+        if (group.owner !== username) return res.status(403).send("Unauthorized");
+
+        if (!group.members.includes(memberToAdd)) {
+            group.members.push(memberToAdd);
+            await group.save();
+        }
+
+        res.redirect("/groups");
+    } catch (err) {
+        console.error("Error adding member:", err);
+        res.status(500).send("Failed to add member");
+    }
+});
+
+
+app.get('/file/:filename', async (req, res) => {
+    if (!gfs) return res.status(503).send("Error: GridFS Bucket not set up");
+
+    try {
         const files = await gfs.find({ filename: req.params.filename }).toArray();
-        if (!files) {
+        if (!files || files.length === 0) {
             return res.status(404).send("File not found");
         }
-        // download stream to download file
+
         res.set("Content-Type", files[0].contentType);
         const readStream = gfs.openDownloadStreamByName(req.params.filename);
         readStream.pipe(res);
@@ -160,16 +302,14 @@ app.get('/file/:filename', async (req, res) => {
     }
 });
 
-// handle server connections/chat
-io.on("connection", function(socket){
-  //console.log('a user connected');
-  // emit chat message to all users
-  socket.on("chat message", function(msg){
-    io.emit("chat message", msg);
-  });
+// socket.io chat
+io.on("connection", function (socket) {
+    socket.on("chat message", function (msg) {
+        io.emit("chat message", msg);
+    });
 });
 
-// listen on port 3000
-http.listen(3000, function(){
-  console.log("listening on port 3000");
+// start server
+http.listen(3000, function () {
+    console.log("listening on port 3000");
 });
