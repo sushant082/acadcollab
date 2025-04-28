@@ -1,18 +1,37 @@
 <header>
-  <nav>
-    <ul id="headerUL">
-      <li class="headerItem"><a href="/" class="headerA">Home</a></li>
-      <li class="headerItem"><a href="/file" class="headerA">Upload File</a></li>
-      <li class="headerItem"><a href="/chat" class="headerA">Chat</a></li>
-      <li class="headerItem"><a href="/groups" class="headerA">Groups</a></li>
+  <nav class="nav-container">
+    <div class="left">
+      <button class="menu-button" onclick="toggleMenu()">&#9776;</button>
+      <div id="dropdownMenu" class="dropdown-content">
+        <a href="/">Home</a>
+        <a href="/file">Upload File</a>
+        <a href="/chat">Chat</a>
+        <a href="/groups">Groups</a>
+      </div>
+    </div>
 
+    <div class="center">
+      <h1 class="site-title">AcadCollab</h1>
+    </div>
+
+    <div class="right">
       <% if (typeof user !== 'undefined') { %>
-        <li class="headerItem"><a href="/logout" class="headerA">Logout</a></li>
+        <a href="/logout" class="logout-button">Logout</a>
+      <% } else { %>
+        <a href="/login" class="logout-button">Login</a>
       <% } %>
-    </ul>
+    </div>
   </nav>
-
-  <% if (typeof user !== 'undefined') { %>
-    <p style="text-align: right; margin-right: 2em;">Welcome, <%= user.username %>!</p>
-  <% } %>
 </header>
+
+<script>
+  function toggleMenu() {
+    const menu = document.getElementById('dropdownMenu');
+    if (menu.style.display === 'flex') {
+      menu.style.display = 'none';
+    } else {
+      menu.style.display = 'flex';
+    }
+  }
+  </script>
+  
