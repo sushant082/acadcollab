@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Your Profile</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    body {
+  font-family: 'Roboto', sans-serif;
+  margin: 0;
+}
+
+main.profile-container {
+  padding: 2em;
+  max-width: 600px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+
+    h1 {
+      text-align: center;
+    }
+
+    .profile-card {
+      background: #f9f9f9;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      padding: 2em;
+      margin-top: 2em;
+    }
+
+    .profile-field {
+      margin-bottom: 1.2em;
+    }
+
+    .profile-label {
+      font-weight: bold;
+      color: #555;
+    }
+
+    .profile-value {
+      display: block;
+      font-size: 1.2em;
+      color: #222;
+      margin-top: 0.25em;
+    }
+
+    .back-button {
+      display: block;
+      margin: 2em auto 0;
+      text-align: center;
+      text-decoration: none;
+      color: #0066cc;
+    }
+
+    .back-button:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+    <%- include('../partials/header') %>
+  
+    <main class="profile-container">
+      <h1>Your Profile</h1>
+  
+      <div class="profile-card">
+        <div class="profile-field">
+          <span class="profile-label">Username:</span>
+          <span class="profile-value"><%= user.username %></span>
+        </div>
+  
+        <% if (user.createdAt) { %>
+          <div class="profile-field">
+            <span class="profile-label">Account Created:</span>
+            <span class="profile-value"><%= user.createdAt.toDateString() %></span>
+          </div>
+        <% } %>
+      </div>
+  
+      <a href="/" class="back-button">← Back to Home</a>
+    </main>
+  </body>
+  
+</html>
