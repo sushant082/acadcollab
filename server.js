@@ -283,6 +283,38 @@ app.post("/groups/:id/add-member", async function (req, res) {
     }
 });
 
+//Updates metadata of an existing file
+//Modified by: Hunter Meesenburg
+//Modified on: 4/30/2025 
+app.post("/file/update-metadata", async (req, res) => {
+    const { fileId, author, modDate } = req.body;
+
+    if (!fileId) {
+        return res.status(400).send("Missing fileId");
+    }
+
+    try{
+        // Build the metadata update object
+        const updateField = {};
+        if (author) updateField["metadata.author"] = author;
+        if (modDate) updateField["metadata.modifiedAt"] = new Date(modDate);
+
+        // Updates the metadata using update object
+        const result = await db.collection("fs.files").updateOne(
+            { _id: new ObjectId(fileId) },
+            { $set: updateField }
+        );
+        
+        if (result.matchedCount === 0) {
+            return res.status(404).send("File not found");
+        }
+
+        res.status(200).send("Metadata updated successfully");
+    } catch (err) {
+        console.error("Error updating metadata:", err);
+        res.status(500).send("Error updating metadata");
+    }
+});
 
 app.get('/file/:filename', async (req, res) => {
     if (!gfs) return res.status(503).send("Error: GridFS Bucket not set up");
