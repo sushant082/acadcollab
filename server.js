@@ -74,7 +74,7 @@ app.post("/login", async (req, res) => {
         }
 
         req.session.user = { username: user.username };
-        res.redirect("/chat");
+        res.redirect("/home");
     } catch (err) {
         console.error("Login error:", err);
         res.status(500).send("Internal server error");
@@ -104,6 +104,28 @@ app.post("/signup", async (req, res) => {
         res.status(500).send("Internal server error");
     }
 });
+
+// home
+app.get("/home", function (req, res) {
+    res.render("pages/home");
+});
+
+// profile
+app.get('/profile', (req, res) => {
+    if (!req.session.user) return res.redirect('/');
+  
+    // If you need extra user info from DB (like createdAt):
+    userModel.findOne({ username: req.session.user.username })
+      .then(user => {
+        if (!user) return res.redirect('/');
+        res.render('pages/profile', { user });
+      })
+      .catch(err => {
+        console.error("Error loading profile:", err);
+        res.status(500).send("Error loading profile");
+      });
+  });
+  
 
 // logout
 app.get("/logout", (req, res) => {
@@ -174,14 +196,22 @@ app.post("/groups", async function (req, res) {
 // files
 app.get('/file', async (req, res) => {
     if (!gfs) return res.status(503).send("Error: GridFS Bucket not set up");
+
     try {
-        var files = await gfs.find({}).toArray();
-        res.render("pages/file", { files });
+        const files = await gfs.find({}).toArray();
+        const groups = await groupModel.find({}); // ✅ Fetch groups from DB
+
+        res.render("pages/file", {
+            files,
+            groups, // ✅ Pass groups to EJS
+            user: req.session.user || null
+        });
     } catch (err) {
-        console.error("Error fetching files:", err);
-        res.status(500).send("Error fetching files");
+        console.error("Error fetching files or groups:", err);
+        res.status(500).send("Error fetching files or groups");
     }
 });
+
 
 app.post("/file/upload", upload.single("uploadedFile"), (req, res) => {
     if (!req.file) {
@@ -316,8 +346,8 @@ app.post("/file/update-metadata", async (req, res) => {
     }
 });
 
-app.get('/file/:filename', async (req, res) => {
-    if (!gfs) return res.status(503).send("Error: GridFS Bucket not set up");
+app.get('/preview/:filename', async (req, res) => {
+    if (!gfs) return res.status(503).send("GridFS not initialized");
 
     try {
         const files = await gfs.find({ filename: req.params.filename }).toArray();
@@ -325,14 +355,21 @@ app.get('/file/:filename', async (req, res) => {
             return res.status(404).send("File not found");
         }
 
-        res.set("Content-Type", files[0].contentType);
+        const file = files[0];
+
+        // Set appropriate content type for preview
+        const contentType = file.contentType || 'application/octet-stream';
+        res.set('Content-Type', contentType);
+
+        // Stream file to browser
         const readStream = gfs.openDownloadStreamByName(req.params.filename);
         readStream.pipe(res);
     } catch (err) {
-        console.error("Error:", err);
-        res.status(500).send("Error downloading file");
+        console.error("Preview error:", err);
+        res.status(500).send("Error previewing file");
     }
 });
+
 
 // socket.io chat
 io.on("connection", function (socket) {

@@ -1,30 +1,139 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Uploaded Files</title>
-    <link rel="stylesheet" type="text/css" href="style.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+  <title>Uploaded Files</title>
+  <link rel="stylesheet" type="text/css" href="/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Roboto', sans-serif;
+    }
+
+    .page-container {
+      display: flex;
+      height: 100vh;
+    }
+
+    .sidebar {
+      width: 300px;
+      background-color: #f2f2f2;
+      padding: 1em;
+      display: flex;
+      flex-direction: column;
+      gap: 1em;
+      box-shadow: 2px 0 4px rgba(0,0,0,0.1);
+    }
+
+    .doc-controls,
+    .chat-box {
+      background: white;
+      padding: 1em;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5em;
+    }
+
+    .chat-box {
+      flex-grow: 2;
+      overflow: hidden;
+    }
+
+    .chat-messages {
+      flex-grow: 1;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      padding: 0.5em;
+      background: #fafafa;
+      margin-bottom: 0.5em;
+    }
+
+    .main-content {
+      flex: 1;
+      padding: 1em;
+      background-color: #fff;
+    }
+
+    .main-content iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+  </style>
 </head>
 <body>
-    <%- include('../partials/header') %>
-    <h1>Files in Database</h1>
+  <%- include('../partials/header') %>
 
-    <ul>
-        <% files.forEach(file => { %>
-            <li>
-                <a href="/file/<%= file.filename %>" download>
-                    <%= file.filename %>
-                </a> (Uploaded on: <%= file.uploadDate.toDateString() %>)
-            </li>
-        <% }) %>
-    </ul>
+  <div class="page-container">
+    <!-- Left Sidebar -->
+    <div class="sidebar">
+      <div class="doc-controls">
+        <h3>Document Controls</h3>
 
-    <h2>Upload a new file</h2>
-    <form action="/file/upload" method="POST" enctype="multipart/form-data">
-        <input type="file" name="uploadedFile" required />
-        <button type="submit">Upload</button>
-    </form>
+        <!-- Dropdown for documents -->
+        <% if (files && files.length > 0) { %>
+          <select id="docSelector">
+            <% files.forEach(file => { %>
+              <option value="<%= file.filename %>"><%= file.filename %></option>
+            <% }) %>
+          </select>
+        <% } else { %>
+          <p>No documents found.</p>
+        <% } %>
+
+        <!-- Activate group -->
+        <label for="group">Group:</label>
+        <% if (groups && groups.length > 0) { %>
+          <select id="group">
+            <% groups.forEach(group => { %>
+              <option value="<%= group._id %>"><%= group.name %></option>
+            <% }) %>
+          </select>
+        <% } else { %>
+          <p>No groups available.</p>
+        <% } %>
+
+        <!-- Placeholder for settings -->
+        <button>Settings</button>
+      </div>
+
+      <div class="chat-box">
+        <h3>Group Chat</h3>
+        <div class="chat-messages" id="chatMessages">
+          <!-- Messages will appear here -->
+        </div>
+        <form id="chatForm">
+          <input type="text" placeholder="Type a message" id="chatInput" />
+          <button type="submit">Send</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Main Document Viewer -->
+    <div class="main-content">
+      <% if (files && files.length > 0) { %>
+        <iframe id="docViewer" src="/preview/<%= files[0].filename %>" frameborder="0"></iframe>
+      <% } else { %>
+        <p>No document selected.</p>
+      <% } %>
+    </div>
+  </div>
+
+  <!-- Optional: Script to handle document switching -->
+  <script>
+    const selector = document.getElementById('docSelector');
+    const viewer = document.getElementById('docViewer');
+
+    if (selector && viewer) {
+      selector.addEventListener('change', () => {
+        viewer.src = '/preview/' + selector.value;
+      });
+    }
+  </script>
 </body>
 </html>
