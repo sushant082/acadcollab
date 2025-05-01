@@ -10,11 +10,11 @@ With dependencies installed, run "node server.js" and navigate to localhost:3000
 - File downloading
 - Simple chat with socket.io
 - Create groups with unique names
-
-# Need to implement
 - Users
 - Joining Groups
+- Chat within groups
+
+# Need to implement
 - Editing files/metadata
 - File access within groups 
-- Chat within groups 
 - Persistent chat

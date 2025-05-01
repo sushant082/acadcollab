@@ -234,9 +234,12 @@ app.get('/documents', async (req, res) => {
 
 // files
 app.get('/file', async (req, res) => {
+    const un = req.session.user?.username;
+    if (!un) return res.redirect("/");
+    console.log(un)
     try {
         const files = await fileModel.find({});  // ✅ This is the correct source
-        const groups = await groupModel.find({});
+        const groups = await groupModel.find({members: un});
 
         res.render("pages/file", {
             files,
@@ -451,6 +454,27 @@ app.get('/preview/:filename', async (req, res) => {
 
 // socket.io chat
 io.on("connection", function (socket) {
+    let currentRoom = null;
+
+    socket.on('joinGroup', (groupId) => {
+        if (currentRoom) {
+            socket.leave(currentRoom);
+        }
+        currentRoom = groupId;
+        socket.join(groupId);
+    });
+
+    socket.on("leaveGroup", (groupId) => {
+        socket.leave(groupId)
+        if (currentRoom == groupId) currentRoom = null;
+    });
+
+    socket.on("groupMessage", ({ groupId, message}) => {
+        const timestamp = Date.now();
+        const sender = socket.handshake.auth?.username || "User";
+        io.to(groupId).emit("groupMessage", {sender, message, timestamp});
+    });
+
     socket.on("chat message", function (msg) {
         io.emit("chat message", msg);
     });
