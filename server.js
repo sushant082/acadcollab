@@ -146,10 +146,18 @@ app.get("/groups", async function (req, res) {
     try {
         const groups = await groupModel.find({});
         const users = await userModel.find({}, "username");
+        const user = req.session.user;
+
+        let selectedGroup = null;
+        if (req.query.groupId) {
+            selectedGroup = await groupModel.findById(req.query.groupId);
+        }
 
         res.render("pages/groups", {
             groups,
             users,
+            user,
+            selectedGroup,
             error: null
         });
     } catch (err) {
@@ -157,6 +165,7 @@ app.get("/groups", async function (req, res) {
         res.status(500).send("Error fetching groups");
     }
 });
+
 
 
 
@@ -172,10 +181,13 @@ app.post("/groups", async function (req, res) {
         const existingGroup = await groupModel.findOne({ name: groupName });
         if (existingGroup) {
             const groups = await groupModel.find({});
-            return res.render("pages/groups", {
+            res.render("pages/groups", {
                 groups,
-                error: "Group name already exists"
+                users,
+                error: null,
+                user: req.session.user  // ✅ Explicitly pass user
             });
+            
         }
 
         const newGroup = new groupModel({
@@ -330,6 +342,30 @@ app.post('/file/:id/delete', async (req, res) => {
 });
 
 
+app.post("/groups/:id/delete", async (req, res) => {
+    const groupId = req.params.id;
+    const username = req.session.user?.username;
+    const { password } = req.body;
+
+    try {
+        // Verify user identity
+        const user = await userModel.findOne({ username });
+        if (!user || !(await user.comparePassword(password))) {
+            return res.status(403).send("Invalid password or unauthorized");
+        }
+
+        const group = await groupModel.findById(groupId);
+        if (!group || group.owner !== username) {
+            return res.status(403).send("You are not authorized to delete this group");
+        }
+
+        await groupModel.findByIdAndDelete(groupId);
+        res.redirect("/groups");
+    } catch (err) {
+        console.error("Error deleting group:", err);
+        res.status(500).send("Failed to delete group");
+    }
+});
 
 
 app.post("/groups/:id/add-member", async function (req, res) {
