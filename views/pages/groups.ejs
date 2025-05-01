@@ -4,69 +4,133 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+    <style>
+      .group-page {
+        font-family: 'Roboto', sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 2em;
+      }
+      .group-page h1, .group-page h2, .group-page h3 {
+        color: #333;
+      }
+      .group-page form {
+        margin-bottom: 1em;
+      }
+      .group-page input[type="text"],
+      .group-page input[type="password"],
+      .group-page select {
+        padding: 0.5em;
+        margin-right: 0.5em;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
+      .group-page button {
+        padding: 0.5em 1em;
+        background-color: #444;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .group-page button:hover {
+        background-color: #666;
+      }
+      .group-page ul {
+        list-style: none;
+        padding-left: 0;
+      }
+      .group-page li {
+        margin-bottom: 0.5em;
+      }
+      .group-page #groupError {
+        color: red;
+        margin-bottom: 1em;
+      }
+    </style>
   </head>
   <body>
     <%- include('../partials/header') %>
 
-    <h1>Create a New Group</h1>
-    <% if (typeof error !== "undefined") { %>
-      <div id="groupError">
-        <%= error %>
-      </div>
-    <% } %>
-    <form action="/groups" method="POST">
-      <input type="text" name="groupName" placeholder="Enter group name" required>
-      <button type="submit">Create Group</button>
-    </form>
+    <div class="group-page">
+      <h1>Group Management</h1>
 
-    <h2>Existing Groups</h2>
-    <ul>
-        <% groups.forEach(function(group) { %>
-          <li>
-            <strong><%= group.name %></strong>
-      
-            <% if (user && user.username === group.owner) { %>
-              (owned by you)
-      
-              <!-- Add Member Dropdown -->
-              <form method="POST" action="/groups/<%= group._id %>/add-member" style="display:inline;">
-                <select name="memberUsername" required>
-                  <% users.forEach(function(u) { 
-                      if (!group.members.includes(u.username)) { %>
-                        <option value="<%= u.username %>"><%= u.username %></option>
-                  <% } }); %>
-                </select>
-                <button type="submit">Add</button>
-              </form>
-      
-              <!-- Remove Members -->
-              <ul>
-                <% group.members.forEach(function(member) { %>
-                  <li>
-                    <%= member %>
-                    <% if (member !== group.owner) { %>
-                      <form method="POST" action="/groups/<%= group._id %>/remove-member" style="display:inline;">
-                        <input type="hidden" name="memberUsername" value="<%= member %>">
-                        <button type="submit">Remove</button>
-                      </form>
-                    <% } %>
-                  </li>
-                <% }); %>
-              </ul>
-      
-              <!-- Manage Group -->
-              <form method="POST" action="/groups/<%= group._id %>/delete">
-                <input type="password" name="password" placeholder="Confirm password to delete" required>
-                <button type="submit">Manage Group</button>
-              </form>
-      
-            <% } else { %>
-              (owner: <%= group.owner %>)
-              <br>Members: <%= group.members.join(", ") %>
-            <% } %>
-          </li>
-        <% }); %>
-      </ul>
-      
+      <!-- Toggle between selecting or creating a group -->
+      <div>
+        <form method="GET" action="/groups">
+          <label for="ownedGroups">Select a Group:</label>
+          <select name="groupId" id="ownedGroups">
+            <% groups.filter(g => g.owner === user.username).forEach(function(group) { %>
+              <option value="<%= group._id %>" <%= selectedGroup && selectedGroup._id.toString() === group._id.toString() ? 'selected' : '' %>>
+                <%= group.name %>
+              </option>
+            <% }) %>
+          </select>
+          <button type="submit">Manage Group</button>
+        </form>
+      </div>
+
+      <hr>
+
+      <!-- Create Group -->
+      <h2>Create a New Group</h2>
+      <% if (typeof error !== "undefined") { %>
+        <div id="groupError">
+          <%= error %>
+        </div>
+      <% } %>
+      <form action="/groups" method="POST">
+        <input type="text" name="groupName" placeholder="Enter group name" required>
+        <button type="submit">Create Group</button>
+      </form>
+
+      <hr>
+
+      <!-- Manage Group Details -->
+      <% if (selectedGroup) { %>
+        <h2>Manage Group: <%= selectedGroup.name %></h2>
+
+        <form method="POST" action="/groups/<%= selectedGroup._id %>/rename">
+          <input type="text" name="newName" placeholder="New group name" required>
+          <button type="submit">Rename</button>
+        </form>
+
+        <form method="POST" action="/groups/<%= selectedGroup._id %>/add-owner">
+          <input type="text" name="newOwner" placeholder="Username to add as owner" required>
+          <button type="submit">Add Owner</button>
+        </form>
+
+        <form method="POST" action="/groups/<%= selectedGroup._id %>/delete">
+          <input type="password" name="password" placeholder="Confirm password to delete" required>
+          <button type="submit">Delete Group</button>
+        </form>
+
+        <h3>Members</h3>
+        <form method="POST" action="/groups/<%= selectedGroup._id %>/add-member">
+          <select name="memberUsername">
+            <% users.forEach(function(u) { 
+                if (!selectedGroup.members.includes(u.username)) { %>
+                  <option value="<%= u.username %>"><%= u.username %></option>
+            <% } }) %>
+          </select>
+          <button type="submit">Add Member</button>
+        </form>
+
+        <ul>
+          <% selectedGroup.members.forEach(function(member) { %>
+            <li>
+              <%= member %>
+              <% if (member !== selectedGroup.owner) { %>
+                <form method="POST" action="/groups/<%= selectedGroup._id %>/remove-member" style="display:inline;">
+                  <input type="hidden" name="memberUsername" value="<%= member %>">
+                  <button type="submit">Remove</button>
+                </form>
+              <% } %>
+            </li>
+          <% }) %>
+        </ul>
+      <% } %>
+    </div>
+
   </body>
 </html>
