@@ -7,8 +7,7 @@
       <a href="/home" class="nav-tab">Home</a>
       
       <div id="dropdownMenu" class="dropdown-content">
-        <a href="/">Home</a>
-        <a href="/file">Upload File</a>
+        <a href="/documents">Upload File</a>
         <a href="/chat">Chat</a>
         <a href="/groups">Groups</a>
       </div>
@@ -22,7 +21,7 @@
       <% if (typeof user !== 'undefined') { %>
         <a href="/logout" class="logout-button">Logout</a>
       <% } else { %>
-        <a href="/login" class="logout-button">Login</a>
+        <a href="/" class="logout-button">Login</a>
       <% } %>
     </div>
   </nav>
