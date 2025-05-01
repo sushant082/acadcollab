@@ -74,33 +74,33 @@
     <div class="sidebar">
       <div class="doc-controls">
         <h3>Document Controls</h3>
-
-        <!-- Dropdown for documents -->
-        <% if (files && files.length > 0) { %>
-          <select id="docSelector">
-            <% files.forEach(file => { %>
-              <option value="<%= file.filename %>"><%= file.filename %></option>
+      
+        <!-- Document selector -->
+        <select id="docSelector">
+          <% files.forEach(file => { %>
+            <option value="<%= file.storedName %>"><%= file.originalName %></option>
             <% }) %>
-          </select>
-        <% } else { %>
-          <p>No documents found.</p>
-        <% } %>
-
-        <!-- Activate group -->
+        </select>
+      
+        <!-- Group selector -->
         <label for="group">Group:</label>
-        <% if (groups && groups.length > 0) { %>
-          <select id="group">
-            <% groups.forEach(group => { %>
-              <option value="<%= group._id %>"><%= group.name %></option>
-            <% }) %>
-          </select>
-        <% } else { %>
-          <p>No groups available.</p>
-        <% } %>
-
-        <!-- Placeholder for settings -->
-        <button>Settings</button>
+        <select id="group">
+          <% groups.forEach(group => { %>
+            <option value="<%= group._id %>"><%= group.name %></option>
+          <% }) %>
+        </select>
+      
+        <!-- File Upload Form -->
+        <form action="/file/upload" method="POST" enctype="multipart/form-data" style="margin-top: 1em;">
+          <label for="uploadedFile">Upload File:</label>
+          <input type="file" name="uploadedFile" id="uploadedFile" required style="margin-bottom: 0.5em;">
+          <button type="submit">Upload</button>
+        </form>
+      
+        <!-- Future: Additional settings -->
+        <!-- <button style="margin-top: 1em;">Settings</button> -->
       </div>
+      
 
       <div class="chat-box">
         <h3>Group Chat</h3>
@@ -117,8 +117,8 @@
     <!-- Main Document Viewer -->
     <div class="main-content">
       <% if (files && files.length > 0) { %>
-        <iframe id="docViewer" src="/preview/<%= files[0].filename %>" frameborder="0"></iframe>
-      <% } else { %>
+        <iframe id="docViewer" src="/preview/<%= files[0].storedName %>"></iframe>
+        <% } else { %>
         <p>No document selected.</p>
       <% } %>
     </div>

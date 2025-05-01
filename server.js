@@ -192,18 +192,43 @@ app.post("/groups", async function (req, res) {
     }
 });
 
+// documents (not the file editor)
+app.get('/documents', async (req, res) => {
+    try {
+        const documents = await fileModel.find({});
+        const groups = await groupModel.find({});
+        res.render('pages/documents', { documents, groups });
+    } catch (err) {
+        console.error("Error fetching documents:", err);
+        res.status(500).send("Error loading documents");
+    }
+});
+
+
+  
+  app.post('/file/:id/delete', async (req, res) => {
+    await fileModel.findByIdAndDelete(req.params.id);
+    res.redirect('/documents');
+  });
+  
+  app.post('/file/:id/assign-group', async (req, res) => {
+    const { groupId } = req.body;
+    // Assign group to file — depends on schema support
+    console.log(`Assigning file ${req.params.id} to group ${groupId}`);
+    res.redirect('/documents');
+  });
+  
+
 
 // files
 app.get('/file', async (req, res) => {
-    if (!gfs) return res.status(503).send("Error: GridFS Bucket not set up");
-
     try {
-        const files = await gfs.find({}).toArray();
-        const groups = await groupModel.find({}); // ✅ Fetch groups from DB
+        const files = await fileModel.find({});  // ✅ This is the correct source
+        const groups = await groupModel.find({});
 
         res.render("pages/file", {
             files,
-            groups, // ✅ Pass groups to EJS
+            groups,
             user: req.session.user || null
         });
     } catch (err) {
@@ -213,26 +238,45 @@ app.get('/file', async (req, res) => {
 });
 
 
+
 app.post("/file/upload", upload.single("uploadedFile"), (req, res) => {
-    if (!req.file) {
-        return res.status(400).send("No file uploaded");
+    if (!req.file || !req.session.user?.username) {
+      return res.status(400).send("Missing file or user session");
     }
-
-    const uploadStream = gfs.openUploadStream(req.file.originalname, {
-        contentType: req.file.mimetype
+  
+    const safeFilename = `${Date.now()}-${req.file.originalname}`; // avoid collisions
+    const uploadStream = gfs.openUploadStream(safeFilename, {
+      contentType: req.file.mimetype
     });
-    uploadStream.end(req.file.buffer);
-
-    uploadStream.on("finish", () => {
-        console.log("File uploaded successfully!");
-        res.redirect("/file");
+  
+    uploadStream.write(req.file.buffer);
+    uploadStream.end();
+  
+    uploadStream.on("finish", async () => {
+      try {
+        const fileEntry = new fileModel({
+          originalName: req.file.originalname,
+          storedName: safeFilename,
+          path: `/preview/${safeFilename}`,
+          owner: req.session.user.username
+        });
+  
+        await fileEntry.save();
+        console.log("✅ File metadata saved to fileModel");
+        res.redirect("/documents");
+      } catch (err) {
+        console.error("❌ Error saving file metadata:", err);
+        res.status(500).send("Upload succeeded but metadata failed to save.");
+      }
     });
-
+  
     uploadStream.on("error", (err) => {
-        console.log("Error uploading file:", err);
-        res.status(500).send("Error uploading file");
+      console.error("❌ Error uploading file to GridFS:", err);
+      res.status(500).send("GridFS upload failed.");
     });
-});
+  });
+  
+
 
 app.post("/groups/:id/remove-member", async function (req, res) {
     const groupId = req.params.id;
@@ -257,37 +301,35 @@ app.post("/groups/:id/remove-member", async function (req, res) {
 
 const bcrypt = require("bcrypt"); // already required in userModel.js
 
-app.post("/groups/:id/delete", async function (req, res) {
-    const groupId = req.params.id;
-    const currentUser = req.session.user?.username;
-    const password = req.body.password;
+const { ObjectId } = require('mongodb');
+
+app.post('/file/:id/delete', async (req, res) => {
+    const fileId = req.params.id;
+    const username = req.session.user?.username;
+
+    if (!username) return res.status(401).send("Unauthorized");
 
     try {
-        const group = await groupModel.findById(groupId);
-        if (!group || group.owner !== currentUser) {
-            return res.status(403).send("Unauthorized");
+        const fileEntry = await fileModel.findById(fileId);
+        if (!fileEntry) return res.status(404).send("File not found");
+        if (fileEntry.owner !== username) return res.status(403).send("Forbidden");
+
+        await fileModel.findByIdAndDelete(fileId);
+
+        const files = await gfs.find({ filename: fileEntry.storedName }).toArray();
+        if (files.length > 0) {
+            await gfs.delete(files[0]._id);
+            console.log("Deleted from GridFS:", fileEntry.storedName);
         }
 
-        const user = await userModel.findOne({ username: currentUser });
-        const isMatch = await user.comparePassword(password);
-
-        if (!isMatch) {
-            const groups = await groupModel.find({});
-            const users = await userModel.find({}, "username");
-            return res.render("pages/groups", {
-                groups,
-                users,
-                error: "Incorrect password. Group not deleted."
-            });
-        }
-
-        await groupModel.findByIdAndDelete(groupId);
-        res.redirect("/groups");
+        res.redirect('/documents');
     } catch (err) {
-        console.error("Error deleting group:", err);
-        res.status(500).send("Failed to delete group");
+        console.error("Error deleting file:", err);
+        res.status(500).send("Error deleting file");
     }
 });
+
+
 
 
 app.post("/groups/:id/add-member", async function (req, res) {

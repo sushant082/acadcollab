@@ -1,15 +1,21 @@
-var mongoose = require("mongoose");
+// models/fileModel.js
+const mongoose = require("mongoose");
 
-var fileSchema = new mongoose.Schema({
-    originalName: String,
-    storedName: String,
-    path: String, 
-    uploadDate: {
-        type: Date,    
-        default: Date.now
-    }
+const fileSchema = new mongoose.Schema({
+  originalName: String,           // Original uploaded filename
+  storedName: String,            // The name stored in GridFS (filename field)
+  owner: String,                 // Username of uploader
+  uploadDate: {                  // When file was uploaded
+    type: Date,
+    default: Date.now
+  },
+  path: String,                  // e.g., "/preview/<filename>"
+  group: {                       // Optional group reference (if applicable)
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "group",
+    default: null
+  }
 });
 
-var fileModel = mongoose.model('file', fileSchema);
+module.exports = mongoose.model("file", fileSchema);
 
-module.exports = fileModel;
