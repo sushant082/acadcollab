@@ -206,3 +206,18 @@ nav {
   height: 100%;
   border: none;
 }
+
+/* LOGO */
+.site-logo {
+  height: 50px; /* or however tall your header should be */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.logo-img {
+  height: 40px;  /* Logo height */
+  width: auto;   /* Keep aspect ratio */
+  filter: brightness(0) invert(1); /* Optional: make it white if needed */
+}
