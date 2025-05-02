@@ -13,8 +13,8 @@ With dependencies installed, run "node server.js" and navigate to localhost:3000
 - Users
 - Joining Groups
 - Chat within groups
+- File access within groups 
+- Persistent chat
 
 # Need to implement
 - Editing files/metadata
-- File access within groups 
-- Persistent chat
