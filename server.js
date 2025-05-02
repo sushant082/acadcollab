@@ -231,6 +231,106 @@ app.get('/documents', async (req, res) => {
   });
   
 
+// file editor
+const mammoth = require("mammoth");
+const stream = require("stream");
+
+app.get('/file/:id/edit', async (req, res) => {
+    const fileId = req.params.id;
+    // const username = req.session.user?.username;
+
+    // if (!username) return res.status(401).send("Unauthorized");
+
+    try {
+        const doc = await fileModel.findById(fileId);
+        if (!doc) return res.status(404).send('Document not found');
+        // if (doc.owner !== username) return res.status(403).send('Forbidden');
+
+        const ext = path.extname(doc.storedName).toLowerCase();
+        const fileStream = gfs.openDownloadStreamByName(doc.storedName);
+
+        let chunks = [];
+        fileStream.on('data', chunk => chunks.push(chunk));
+        fileStream.on('end', async () => {
+            const buffer = Buffer.concat(chunks);
+
+            if (ext === '.txt') {
+                const content = buffer.toString('utf8');
+                res.render('pages/editor', { doc, content });
+            } else if (ext === '.docx') {
+                try {
+                    const result = await mammoth.convertToHtml({ buffer });
+                    res.render('pages/editor', { doc, content: result.value });
+                } catch (err) {
+                    console.error("Mammoth conversion failed:", err);
+                    res.status(500).send("Could not convert .docx to HTML");
+                }
+            } else {
+                res.status(415).send("Unsupported file type");
+            }
+        });
+
+        fileStream.on('error', err => {
+            console.error("GridFS read error:", err);
+            res.status(500).send("Could not read file");
+        });
+    } catch (err) {
+        console.error("Error opening file:", err);
+        res.status(500).send("Could not open file for editing");
+    }
+});
+
+const HTMLtoDOCX = require('html-to-docx');
+
+app.post('/file/:id/save', async (req, res) => {
+    const fileId = req.params.id;
+    // const username = req.session.user?.username;
+
+    // if (!username) return res.status(401).send("Unauthorized");
+
+    try {
+        const doc = await fileModel.findById(fileId);
+        if (!doc) return res.status(404).send('Document not found');
+        // if (doc.owner !== username) return res.status(403).send('Forbidden');
+
+        const content = req.body.content;
+        const ext = path.extname(doc.storedName).toLowerCase();
+
+        // Delete old file from GridFS first
+        const oldFiles = await gfs.find({ filename: doc.storedName }).toArray();
+        if (oldFiles.length > 0) await gfs.delete(oldFiles[0]._id);
+
+        let bufferToWrite;
+
+        if (ext === '.txt') {
+            bufferToWrite = Buffer.from(content, 'utf8');
+        } else if (ext === '.docx') {
+            bufferToWrite = await HTMLtoDOCX(content, "", {}, "");
+        } else {
+            return res.status(415).send("Unsupported file type");
+        }
+
+        const uploadStream = gfs.openUploadStream(doc.storedName, {
+            contentType: ext === '.txt' ? 'text/plain' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        });
+
+        // uploadStream.write(bufferToWrite);
+        uploadStream.end(bufferToWrite);
+
+        uploadStream.on('finish', () => res.redirect('/documents'));
+        uploadStream.on('error', err => {
+            console.error("Upload error:", err);
+            res.status(500).send("Could not save file");
+        });
+
+    } catch (err) {
+        console.error("Error saving file:", err);
+        res.status(500).send("Could not save file");
+    }
+});
+
+// file editor
+
 
 // files
 app.get('/file', async (req, res) => {
