@@ -1,6 +1,6 @@
 <div class="chat-box">
-    <label for="group"> Select Group: </label>
-    <select id="group">
+    <label for="chatGroupSelector"> Select Group: </label>
+    <select id="chatGroupSelector">
         <% groups.forEach(group => { %>
             <option value="<%= group._id %>"><%= group.name %></option>
         <% }) %>
@@ -20,7 +20,7 @@
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-    const groupSelector = document.getElementById('group');
+    const groupSelector = document.getElementById('chatGroupSelector');
     const chatMessages = document.getElementById('chatMessages');
     const chatInput = document.getElementById('chatInput');
     const chatForm = document.getElementById('chatForm');
