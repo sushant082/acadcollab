@@ -1,11 +1,11 @@
-var express = require('express');
-var mongoose = require('mongoose');
-var app = express();
-var http = require('http').createServer(app);
-var io = require('socket.io')(http);
-var session = require("express-session");
-var multer = require('multer');
-var path = require("path");
+const express = require('express');
+const mongoose = require('mongoose');
+const app = express();
+const http = require('http').createServer(app);
+const io = require('socket.io')(http);
+const session = require('express-session');
+const multer = require('multer');
+const path = require('path');
 
 // connect to mongoose
 async function main() {
@@ -15,22 +15,29 @@ main().then(() => console.log("Connected to mongoDB")).catch(error => console.lo
 const conn = mongoose.connection;
 
 // set up models
-var fileModel = require("./models/fileModel"); // NEED TO IMPLEMENT
-var groupModel = require("./models/groupModel");
-var userModel = require("./models/userModel");
+const fileModel = require("./models/fileModel");
+const groupModel = require("./models/groupModel");
+const userModel = require("./models/userModel");
 
 // set up gfs for file storage
 let gfs;
+
+// multer for file uploads
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
+
 conn.once('open', () => {
     console.log("MongoDB connection open");
     gfs = new mongoose.mongo.GridFSBucket(conn.db, {
         bucketName: 'uploads'
     });
-});
 
-// multer for file uploads
-const storage = multer.memoryStorage();
-const upload = multer({ storage });
+    // Register routes that depend on gfs
+    const fileRoutes = require('./routes/file')(gfs, upload, mongoose.connection.db);
+    const previewRoutes = require('./routes/preview')(gfs);
+    app.use(fileRoutes);
+    app.use(previewRoutes);
+});
 
 // session middleware
 app.use(session({
@@ -51,506 +58,13 @@ app.use((req, res, next) => {
     next();
 });
 
-// home route
-app.get("/", function (req, res) {
-    if (req.session.user) {
-        res.render("pages/home");
-    } else {
-        res.render("pages/index", { error: null });
-    }
-});
-
-// login
-app.post("/login", async (req, res) => {
-    const { username, password } = req.body;
-    if (!username || !password) {
-        return res.render("pages/index", { error: "All fields are required" });
-    }
-
-    try {
-        const user = await userModel.findOne({ username });
-        if (!user || !(await user.comparePassword(password))) {
-            return res.render("pages/index", { error: "Invalid username or password" });
-        }
-
-        req.session.user = { username: user.username };
-        res.redirect("/home");
-    } catch (err) {
-        console.error("Login error:", err);
-        res.status(500).send("Internal server error");
-    }
-});
-
-// signup
-app.post("/signup", async (req, res) => {
-    const { username, password } = req.body;
-    if (!username || !password) {
-        return res.render("pages/index", { error: "All fields are required" });
-    }
-
-    try {
-        const existing = await userModel.findOne({ username });
-        if (existing) {
-            return res.render("pages/index", { error: "Username already exists" });
-        }
-
-        const user = new userModel({ username, password });
-        await user.save();
-
-        req.session.user = { username: user.username };
-        res.redirect("/chat");
-    } catch (err) {
-        console.error("Signup error:", err);
-        res.status(500).send("Internal server error");
-    }
-});
-
-// home
-app.get("/home", function (req, res) {
-    res.render("pages/home");
-});
-
-// profile
-app.get('/profile', (req, res) => {
-    if (!req.session.user) return res.redirect('/');
-  
-    // If you need extra user info from DB (like createdAt):
-    userModel.findOne({ username: req.session.user.username })
-      .then(user => {
-        if (!user) return res.redirect('/');
-        res.render('pages/profile', { user });
-      })
-      .catch(err => {
-        console.error("Error loading profile:", err);
-        res.status(500).send("Error loading profile");
-      });
-  });
-  
-
-// logout
-app.get("/logout", (req, res) => {
-    req.session.destroy(() => {
-        res.redirect("/");
-    });
-});
-
-// chat
-app.get("/chat", function (req, res) {
-    if (!req.session.user) return res.redirect("/");
-    res.render("pages/chat");
-});
-
-// groups
-
-app.get("/groups", async function (req, res) {
-    try {
-        const groups = await groupModel.find({});
-        const users = await userModel.find({}, "username");
-        const user = req.session.user;
-
-        let selectedGroup = null;
-        if (req.query.groupId) {
-            selectedGroup = await groupModel.findById(req.query.groupId);
-        }
-
-        res.render("pages/groups", {
-            groups,
-            users,
-            user,
-            selectedGroup,
-            error: null
-        });
-    } catch (err) {
-        console.error("Error fetching groups:", err);
-        res.status(500).send("Error fetching groups");
-    }
-});
-
-
-
-
-app.post("/groups", async function (req, res) {
-    const groupName = req.body.groupName;
-    const username = req.session.user?.username;
-
-    if (!groupName || !username) {
-        return res.status(400).send("Group name and user required");
-    }
-
-    try {
-        const existingGroup = await groupModel.findOne({ name: groupName });
-        if (existingGroup) {
-            const groups = await groupModel.find({});
-            res.render("pages/groups", {
-                groups,
-                users,
-                error: null,
-                user: req.session.user  // ✅ Explicitly pass user
-            });
-            
-        }
-
-        const newGroup = new groupModel({
-            name: groupName,
-            owner: username,
-            members: [username] // owner is first member
-        });
-
-        await newGroup.save();
-        res.redirect("/groups");
-    } catch (err) {
-        console.error("Error creating group: ", err);
-        res.status(500).send("Failed to create group");
-    }
-});
-
-// documents (not the file editor)
-app.get('/documents', async (req, res) => {
-    try {
-        const documents = await fileModel.find({});
-        const groups = await groupModel.find({});
-        res.render('pages/documents', { documents, groups });
-    } catch (err) {
-        console.error("Error fetching documents:", err);
-        res.status(500).send("Error loading documents");
-    }
-});
-
-
-  
-  app.post('/file/:id/delete', async (req, res) => {
-    await fileModel.findByIdAndDelete(req.params.id);
-    res.redirect('/documents');
-  });
-  
-  app.post('/file/:id/assign-group', async (req, res) => {
-    const { groupId } = req.body;
-    // Assign group to file — depends on schema support
-    console.log(`Assigning file ${req.params.id} to group ${groupId}`);
-    res.redirect('/documents');
-  });
-  
-
-// file editor
-const mammoth = require("mammoth");
-const stream = require("stream");
-
-app.get('/file/:id/edit', async (req, res) => {
-    const fileId = req.params.id;
-    // const username = req.session.user?.username;
-
-    // if (!username) return res.status(401).send("Unauthorized");
-
-    try {
-        const doc = await fileModel.findById(fileId);
-        if (!doc) return res.status(404).send('Document not found');
-        // if (doc.owner !== username) return res.status(403).send('Forbidden');
-
-        const ext = path.extname(doc.storedName).toLowerCase();
-        const fileStream = gfs.openDownloadStreamByName(doc.storedName);
-
-        let chunks = [];
-        fileStream.on('data', chunk => chunks.push(chunk));
-        fileStream.on('end', async () => {
-            const buffer = Buffer.concat(chunks);
-
-            if (ext === '.txt') {
-                const content = buffer.toString('utf8');
-                res.render('pages/editor', { doc, content });
-            } else if (ext === '.docx') {
-                try {
-                    const result = await mammoth.convertToHtml({ buffer });
-                    res.render('pages/editor', { doc, content: result.value });
-                } catch (err) {
-                    console.error("Mammoth conversion failed:", err);
-                    res.status(500).send("Could not convert .docx to HTML");
-                }
-            } else {
-                res.status(415).send("Unsupported file type");
-            }
-        });
-
-        fileStream.on('error', err => {
-            console.error("GridFS read error:", err);
-            res.status(500).send("Could not read file");
-        });
-    } catch (err) {
-        console.error("Error opening file:", err);
-        res.status(500).send("Could not open file for editing");
-    }
-});
-
-const HTMLtoDOCX = require('html-to-docx');
-
-app.post('/file/:id/save', async (req, res) => {
-    const fileId = req.params.id;
-    // const username = req.session.user?.username;
-
-    // if (!username) return res.status(401).send("Unauthorized");
-
-    try {
-        const doc = await fileModel.findById(fileId);
-        if (!doc) return res.status(404).send('Document not found');
-        // if (doc.owner !== username) return res.status(403).send('Forbidden');
-
-        const content = req.body.content;
-        const ext = path.extname(doc.storedName).toLowerCase();
-
-        // Delete old file from GridFS first
-        const oldFiles = await gfs.find({ filename: doc.storedName }).toArray();
-        if (oldFiles.length > 0) await gfs.delete(oldFiles[0]._id);
-
-        let bufferToWrite;
-
-        if (ext === '.txt') {
-            bufferToWrite = Buffer.from(content, 'utf8');
-        } else if (ext === '.docx') {
-            bufferToWrite = await HTMLtoDOCX(content, "", {}, "");
-        } else {
-            return res.status(415).send("Unsupported file type");
-        }
-
-        const uploadStream = gfs.openUploadStream(doc.storedName, {
-            contentType: ext === '.txt' ? 'text/plain' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-        });
-
-        // uploadStream.write(bufferToWrite);
-        uploadStream.end(bufferToWrite);
-
-        uploadStream.on('finish', () => res.redirect('/documents'));
-        uploadStream.on('error', err => {
-            console.error("Upload error:", err);
-            res.status(500).send("Could not save file");
-        });
-
-    } catch (err) {
-        console.error("Error saving file:", err);
-        res.status(500).send("Could not save file");
-    }
-});
-
-// file editor
-
-
-// files
-app.get('/file', async (req, res) => {
-    const un = req.session.user?.username;
-    if (!un) return res.redirect("/");
-    console.log(un)
-    try {
-        const files = await fileModel.find({});  // ✅ This is the correct source
-        const groups = await groupModel.find({members: un});
-
-        res.render("pages/file", {
-            files,
-            groups,
-            user: req.session.user || null
-        });
-    } catch (err) {
-        console.error("Error fetching files or groups:", err);
-        res.status(500).send("Error fetching files or groups");
-    }
-});
-
-
-
-app.post("/file/upload", upload.single("uploadedFile"), (req, res) => {
-    if (!req.file || !req.session.user?.username) {
-      return res.status(400).send("Missing file or user session");
-    }
-  
-    const safeFilename = `${Date.now()}-${req.file.originalname}`; // avoid collisions
-    const uploadStream = gfs.openUploadStream(safeFilename, {
-      contentType: req.file.mimetype
-    });
-  
-    uploadStream.write(req.file.buffer);
-    uploadStream.end();
-  
-    uploadStream.on("finish", async () => {
-      try {
-        const fileEntry = new fileModel({
-          originalName: req.file.originalname,
-          storedName: safeFilename,
-          path: `/preview/${safeFilename}`,
-          owner: req.session.user.username
-        });
-  
-        await fileEntry.save();
-        console.log("✅ File metadata saved to fileModel");
-        res.redirect("/documents");
-      } catch (err) {
-        console.error("❌ Error saving file metadata:", err);
-        res.status(500).send("Upload succeeded but metadata failed to save.");
-      }
-    });
-  
-    uploadStream.on("error", (err) => {
-      console.error("❌ Error uploading file to GridFS:", err);
-      res.status(500).send("GridFS upload failed.");
-    });
-  });
-  
-
-
-app.post("/groups/:id/remove-member", async function (req, res) {
-    const groupId = req.params.id;
-    const username = req.session.user?.username;
-    const memberToRemove = req.body.memberUsername;
-
-    try {
-        const group = await groupModel.findById(groupId);
-        if (!group || group.owner !== username) {
-            return res.status(403).send("Unauthorized");
-        }
-
-        group.members = group.members.filter(m => m !== memberToRemove);
-        await group.save();
-
-        res.redirect("/groups");
-    } catch (err) {
-        console.error("Error removing member:", err);
-        res.status(500).send("Internal server error");
-    }
-});
-
-const bcrypt = require("bcrypt"); // already required in userModel.js
-
-const { ObjectId } = require('mongodb');
-
-app.post('/file/:id/delete', async (req, res) => {
-    const fileId = req.params.id;
-    const username = req.session.user?.username;
-
-    if (!username) return res.status(401).send("Unauthorized");
-
-    try {
-        const fileEntry = await fileModel.findById(fileId);
-        if (!fileEntry) return res.status(404).send("File not found");
-        if (fileEntry.owner !== username) return res.status(403).send("Forbidden");
-
-        await fileModel.findByIdAndDelete(fileId);
-
-        const files = await gfs.find({ filename: fileEntry.storedName }).toArray();
-        if (files.length > 0) {
-            await gfs.delete(files[0]._id);
-            console.log("Deleted from GridFS:", fileEntry.storedName);
-        }
-
-        res.redirect('/documents');
-    } catch (err) {
-        console.error("Error deleting file:", err);
-        res.status(500).send("Error deleting file");
-    }
-});
-
-
-app.post("/groups/:id/delete", async (req, res) => {
-    const groupId = req.params.id;
-    const username = req.session.user?.username;
-    const { password } = req.body;
-
-    try {
-        // Verify user identity
-        const user = await userModel.findOne({ username });
-        if (!user || !(await user.comparePassword(password))) {
-            return res.status(403).send("Invalid password or unauthorized");
-        }
-
-        const group = await groupModel.findById(groupId);
-        if (!group || group.owner !== username) {
-            return res.status(403).send("You are not authorized to delete this group");
-        }
-
-        await groupModel.findByIdAndDelete(groupId);
-        res.redirect("/groups");
-    } catch (err) {
-        console.error("Error deleting group:", err);
-        res.status(500).send("Failed to delete group");
-    }
-});
-
-
-app.post("/groups/:id/add-member", async function (req, res) {
-    const groupId = req.params.id;
-    const username = req.session.user?.username;
-    const memberToAdd = req.body.memberUsername;
-
-    try {
-        const group = await groupModel.findById(groupId);
-
-        if (!group) return res.status(404).send("Group not found");
-        if (group.owner !== username) return res.status(403).send("Unauthorized");
-
-        if (!group.members.includes(memberToAdd)) {
-            group.members.push(memberToAdd);
-            await group.save();
-        }
-
-        res.redirect("/groups");
-    } catch (err) {
-        console.error("Error adding member:", err);
-        res.status(500).send("Failed to add member");
-    }
-});
-
-//Updates metadata of an existing file
-//Modified by: Hunter Meesenburg
-//Modified on: 4/30/2025 
-app.post("/file/update-metadata", async (req, res) => {
-    const { fileId, author, modDate } = req.body;
-
-    if (!fileId) {
-        return res.status(400).send("Missing fileId");
-    }
-
-    try{
-        // Build the metadata update object
-        const updateField = {};
-        if (author) updateField["metadata.author"] = author;
-        if (modDate) updateField["metadata.modifiedAt"] = new Date(modDate);
-
-        // Updates the metadata using update object
-        const result = await db.collection("fs.files").updateOne(
-            { _id: new ObjectId(fileId) },
-            { $set: updateField }
-        );
-        
-        if (result.matchedCount === 0) {
-            return res.status(404).send("File not found");
-        }
-
-        res.status(200).send("Metadata updated successfully");
-    } catch (err) {
-        console.error("Error updating metadata:", err);
-        res.status(500).send("Error updating metadata");
-    }
-});
-
-app.get('/preview/:filename', async (req, res) => {
-    if (!gfs) return res.status(503).send("GridFS not initialized");
-
-    try {
-        const files = await gfs.find({ filename: req.params.filename }).toArray();
-        if (!files || files.length === 0) {
-            return res.status(404).send("File not found");
-        }
-
-        const file = files[0];
-
-        // Set appropriate content type for preview
-        const contentType = file.contentType || 'application/octet-stream';
-        res.set('Content-Type', contentType);
-
-        // Stream file to browser
-        const readStream = gfs.openDownloadStreamByName(req.params.filename);
-        readStream.pipe(res);
-    } catch (err) {
-        console.error("Preview error:", err);
-        res.status(500).send("Error previewing file");
-    }
-});
-
+// mount routes
+app.use(require('./routes/auth'));
+app.use(require('./routes/home'));
+app.use(require('./routes/profile'));
+app.use(require('./routes/chat'));
+app.use(require('./routes/groups'));
+app.use(require('./routes/documents'));
 
 // socket.io chat
 io.on("connection", function (socket) {
@@ -565,14 +79,14 @@ io.on("connection", function (socket) {
     });
 
     socket.on("leaveGroup", (groupId) => {
-        socket.leave(groupId)
+        socket.leave(groupId);
         if (currentRoom == groupId) currentRoom = null;
     });
 
-    socket.on("groupMessage", ({ groupId, message}) => {
+    socket.on("groupMessage", ({ groupId, message }) => {
         const timestamp = Date.now();
         const sender = socket.handshake.auth?.username || "User";
-        io.to(groupId).emit("groupMessage", {sender, message, timestamp});
+        io.to(groupId).emit("groupMessage", { sender, message, timestamp });
     });
 
     socket.on("chat message", function (msg) {
