@@ -15,6 +15,14 @@ module.exports = (gfs, upload, db) => {
 
     try {
       const groups = await groupModel.find({ members: username });
+      if (groups.length == 0) {
+        return res.render("pages/file", {
+          files: [], 
+          groups, 
+          selectedGroup: null,
+          user: req.session.user || null
+        });
+      }
       const selectedGroup = req.query.group || (groups[0]?._id.toString()) || null;
       const query = selectedGroup ? { group: new ObjectId(selectedGroup) }: {};
       const files = await fileModel.find(query);
