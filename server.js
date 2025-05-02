@@ -18,6 +18,7 @@ const conn = mongoose.connection;
 const fileModel = require("./models/fileModel");
 const groupModel = require("./models/groupModel");
 const userModel = require("./models/userModel");
+const messageModel = require("./models/messageModel");
 
 // set up gfs for file storage
 let gfs;
@@ -83,9 +84,12 @@ io.on("connection", function (socket) {
         if (currentRoom == groupId) currentRoom = null;
     });
 
-    socket.on("groupMessage", ({ groupId, message }) => {
+    socket.on("groupMessage", async ({ groupId, message }) => {
         const timestamp = Date.now();
         const sender = socket.handshake.auth?.username || "User";
+        const savedMessage = await messageModel.create({
+            groupId, sender, message, timestamp
+        });
         io.to(groupId).emit("groupMessage", { sender, message, timestamp });
     });
 

@@ -1,0 +1,84 @@
+<div class="chat-box">
+    <label for="group"> Select Group: </label>
+    <select id="group">
+        <% groups.forEach(group => { %>
+            <option value="<%= group._id %>"><%= group.name %></option>
+        <% }) %>
+    </select>
+    <div id="chatGroupTitle">
+      Chat:
+      <%= groups.find(g => g._id.toString() === groups[0]?._id.toString())?.name || "Select a group" %>
+    </div>
+    <div class="chat-messages" id="chatMessages">
+
+    </div>
+    <form id="chatForm" onsubmit="return false;">
+      <input type="text" placeholder="Type a message" id="chatInput" disabled />
+      <button type="submit" id ="chatSendButton" disabled >Send</button>
+    </form>
+  </div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+    const groupSelector = document.getElementById('group');
+    const chatMessages = document.getElementById('chatMessages');
+    const chatInput = document.getElementById('chatInput');
+    const chatForm = document.getElementById('chatForm');
+    const chatSendButton = document.getElementById('chatSendButton');
+    const chatGroupTitle = document.getElementById('chatGroupTitle');
+    let currentGroupId = groupSelector?.value || null;
+
+    const socket = io({
+        auth: { username: "<%= user?.username %>"}
+    });
+
+    function updateChatUIState() {
+        const validGroup = currentGroupId && currentGroupId.trim() != '';
+        chatInput.disabled = !validGroup;
+        chatSendButton.disabled = !validGroup;
+    }
+
+    async function fetchMessages(groupId) {
+        const res = await fetch(`/chat/messages/${groupId}`);
+        const messages = await res.json();
+        chatMessages.innerHTML = '';
+        messages.forEach(({ sender, message, timestamp }) => {
+            const msgDiv = document.createElement('div');
+            msgDiv.textContent = `[${new Date(timestamp).toLocaleTimeString()}] ${sender}: ${message}`;
+            chatMessages.appendChild(msgDiv);
+        });
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    socket.emit('joinGroup', currentGroupId);
+    fetchMessages(currentGroupId);
+    updateChatUIState();
+
+    groupSelector.addEventListener('change', () => {
+        const newGroupId = groupSelector.value;
+        if(currentGroupId != newGroupId) {
+            socket.emit('leaveGroup', currentGroupId);
+            currentGroupId = newGroupId;
+            socket.emit('joinGroup', currentGroupId);
+            fetchMessages(currentGroupId);
+            chatGroupTitle.textContent = `Chat: ${groupSelector.options[groupSelector.selectedIndex].text}`;
+            updateChatUIState();
+        }
+    });
+
+    chatForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const message = chatInput.value.trim();
+        if (message != '') {
+            socket.emit('groupMessage', {groupId: currentGroupId, message});
+        } 
+        chatInput.value = '';
+    });
+
+    socket.on('groupMessage', ({sender, message, timestamp }) => {
+        const msgDiv = document.createElement('div');
+        msgDiv.textContent = `[${new Date(timestamp).toLocaleTimeString()}] ${sender}: ${message}`;
+        chatMessages.appendChild(msgDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    });
+</script>
