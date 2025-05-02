@@ -86,7 +86,7 @@
         <label for="group">Group:</label>
         <select id="group">
           <% groups.forEach(group => { %>
-            <option value="<%= group._id %>"><%= group.name %></option>
+            <option value="<%= group._id %>"<%= selectedGroup == group._id.toString() ? 'selected' : '' %>><%= group.name %></option>
           <% }) %>
         </select>
       
@@ -116,12 +116,33 @@
   <!-- Optional: Script to handle document switching -->
   <script src="/socket.io/socket.io.js"></script>
   <script>
-    const selector = document.getElementById('docSelector');
+    const docSelector = document.getElementById('docSelector');
+    let groupSelector = document.getElementById('group');
     const viewer = document.getElementById('docViewer');
 
-    if (selector && viewer) {
-      selector.addEventListener('change', () => {
-        viewer.src = '/preview/' + selector.value;
+    groupSelector.addEventListener('change', async () => {
+      let selectedGroup = groupSelector.value;
+      const response = await fetch(`file?group=${selectedGroup}`, {
+        headers: {'X-Requested-With': 'XMLHttpRequest'}
+      });
+      const data = await response.json();
+      docSelector.innerHTML = '';
+      data.files.forEach(file => {
+        const option = document.createElement('option');
+        option.value = file.storedName;
+        option.textContent = file.originalName;
+        docSelector.appendChild(option);
+      });
+
+      if (data.files.length > 0) {
+        viewer.src = `/preview/${data.files[0].storedName}`;
+      }
+
+    });
+
+    if (docSelector && viewer) {
+      docSelector.addEventListener('change', () => {
+        viewer.src = '/preview/' + docSelector.value;
       });
     }
 

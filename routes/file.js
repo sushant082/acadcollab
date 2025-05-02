@@ -14,12 +14,20 @@ module.exports = (gfs, upload, db) => {
     if (!username) return res.redirect("/");
 
     try {
-      const files = await fileModel.find({});
       const groups = await groupModel.find({ members: username });
+      const selectedGroup = req.query.group || (groups[0]?._id.toString()) || null;
+      const query = selectedGroup ? { group: new ObjectId(selectedGroup) }: {};
+      const files = await fileModel.find(query);
+      
+
+      if (req.xhr) {
+        return res.json({files});
+      }
 
       res.render("pages/file", {
         files,
         groups,
+        selectedGroup,
         user: req.session.user || null
       });
     } catch (err) {

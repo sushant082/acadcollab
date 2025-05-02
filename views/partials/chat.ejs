@@ -20,13 +20,13 @@
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-    const groupSelector = document.getElementById('chatGroupSelector');
+    const chatGroupSelector = document.getElementById('chatGroupSelector');
     const chatMessages = document.getElementById('chatMessages');
     const chatInput = document.getElementById('chatInput');
     const chatForm = document.getElementById('chatForm');
     const chatSendButton = document.getElementById('chatSendButton');
     const chatGroupTitle = document.getElementById('chatGroupTitle');
-    let currentGroupId = groupSelector?.value || null;
+    let currentGroupId = chatGroupSelector?.value || null;
 
     const socket = io({
         auth: { username: "<%= user?.username %>"}
@@ -54,14 +54,14 @@
     fetchMessages(currentGroupId);
     updateChatUIState();
 
-    groupSelector.addEventListener('change', () => {
-        const newGroupId = groupSelector.value;
+    chatGroupSelector.addEventListener('change', () => {
+        const newGroupId = chatGroupSelector.value;
         if(currentGroupId != newGroupId) {
             socket.emit('leaveGroup', currentGroupId);
             currentGroupId = newGroupId;
             socket.emit('joinGroup', currentGroupId);
             fetchMessages(currentGroupId);
-            chatGroupTitle.textContent = `Chat: ${groupSelector.options[groupSelector.selectedIndex].text}`;
+            chatGroupTitle.textContent = `Chat: ${chatGroupSelector.options[groupSelector.selectedIndex].text}`;
             updateChatUIState();
         }
     });

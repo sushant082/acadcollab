@@ -58,6 +58,7 @@
             <th>Stored Name</th>
             <th>Upload Date</th>
             <th>Owner</th>
+            <th>Group</th>
             <th>Assign to Group</th>
             <th>Actions</th>
           </tr>
@@ -69,6 +70,7 @@
               <td><%= doc.storedName %></td>
               <td><%= new Date(doc.uploadDate).toLocaleDateString() %></td>
               <td><%= doc.owner || 'unknown' %></td>
+              <td><%= doc.group?.name || 'Unassigned' %></td>
               <td>
                 <form action="/file/<%= doc._id %>/assign-group" method="POST">
                   <select name="groupId">
