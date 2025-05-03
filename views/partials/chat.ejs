@@ -61,7 +61,7 @@
             currentGroupId = newGroupId;
             socket.emit('joinGroup', currentGroupId);
             fetchMessages(currentGroupId);
-            chatGroupTitle.textContent = `Chat: ${chatGroupSelector.options[groupSelector.selectedIndex].text}`;
+            chatGroupTitle.textContent = `Chat: ${chatGroupSelector.options[chatGroupSelector.selectedIndex].text}`;
             updateChatUIState();
         }
     });
