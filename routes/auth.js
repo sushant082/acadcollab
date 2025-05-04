@@ -40,7 +40,7 @@ router.post("/signup", async (req, res) => {
         await user.save();
 
         req.session.user = { username: user.username };
-        res.redirect("/chat");
+        res.redirect("/");
     } catch (err) {
         console.error("Signup error:", err);
         res.status(500).send("Internal server error");

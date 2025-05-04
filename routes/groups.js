@@ -64,6 +64,30 @@ router.post("/groups", async (req, res) => {
     }
 });
 
+// Rename group
+router.post("/groups/:groupId/rename", async (req, res) => {
+    const groupId = req.params.groupId;
+    const newName = req.body.newName;
+    const username = req.session.user?.username;
+
+    if (!username || !newName) {
+        return res.status(400).send("Missing user or new group name");
+    }
+
+    try {
+        const group = await groupModel.findById(groupId);
+        if (!group) return res.status(404).send("Group not found");
+        if (group.owner !== username) return res.status(403).send("Only the owner can rename the group");
+
+        group.name = newName;
+        await group.save();
+        res.redirect(`/groups?groupId=${groupId}`);
+    } catch (err) {
+        console.error("Error renaming group:", err);
+        res.status(500).send("Failed to rename group");
+    }
+});
+
 // Add member
 router.post("/groups/:id/add-member", async (req, res) => {
     const groupId = req.params.id;
