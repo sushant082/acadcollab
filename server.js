@@ -66,6 +66,7 @@ app.use(require('./routes/profile'));
 app.use(require('./routes/chat'));
 app.use(require('./routes/groups'));
 app.use(require('./routes/documents'));
+// app.use(require('./routes/file'));
 
 // socket.io chat
 io.on("connection", function (socket) {

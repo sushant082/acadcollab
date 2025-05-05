@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('path');
 const router = express.Router();
 
 module.exports = (gfs) => {
@@ -6,15 +7,28 @@ module.exports = (gfs) => {
     if (!gfs) return res.status(503).send("GridFS not initialized");
 
     try {
-      const files = await gfs.find({ filename: req.params.filename }).toArray();
+      res.set('Cache-Control', 'no-store');
+
+      // Find the most recent file with the given filename
+      const files = await gfs.find({ filename: req.params.filename })
+                             .sort({ uploadDate: -1 })
+                             .toArray();
+
       if (!files || files.length === 0) {
         return res.status(404).send("File not found");
       }
 
-      const file = files[0];
-      res.set('Content-Type', file.contentType || 'application/octet-stream');
+      const latestFile = files[0];
+      const ext = path.extname(latestFile.filename).toLowerCase();
 
-      const readStream = gfs.openDownloadStreamByName(req.params.filename);
+      // Force text files to render as HTML
+      if (ext === '.txt') {
+        res.set('Content-Type', 'text/html');
+      } else {
+        res.set('Content-Type', latestFile.contentType || 'application/octet-stream');
+      }
+
+      const readStream = gfs.openDownloadStream(latestFile._id);
       readStream.pipe(res);
     } catch (err) {
       console.error("Preview error:", err);

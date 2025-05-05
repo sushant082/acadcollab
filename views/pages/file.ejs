@@ -11,12 +11,10 @@
       margin: 0;
       font-family: 'Roboto', sans-serif;
     }
-
     .page-container {
       display: flex;
       height: 100vh;
     }
-
     .sidebar {
       width: 300px;
       background-color: #f2f2f2;
@@ -26,7 +24,6 @@
       gap: 1em;
       box-shadow: 2px 0 4px rgba(0,0,0,0.1);
     }
-
     .doc-controls,
     .chat-box {
       background: white;
@@ -38,12 +35,10 @@
       flex-direction: column;
       gap: 0.5em;
     }
-
     .chat-box {
       flex-grow: 2;
       overflow: hidden;
     }
-
     .chat-messages {
       flex-grow: 1;
       overflow-y: auto;
@@ -52,13 +47,11 @@
       background: #fafafa;
       margin-bottom: 0.5em;
     }
-
     .main-content {
       flex: 1;
       padding: 1em;
       background-color: #fff;
     }
-
     .main-content iframe {
       width: 100%;
       height: 100%;
@@ -70,84 +63,152 @@
   <%- include('../partials/header') %>
 
   <div class="page-container">
-    <!-- Left Sidebar -->
     <div class="sidebar">
       <div class="doc-controls">
         <h3>Document Controls</h3>
-      
+
         <!-- Document selector -->
         <select id="docSelector">
           <% files.forEach(file => { %>
-            <option value="<%= file.storedName %>"><%= file.originalName %></option>
-            <% }) %>
+            <option value="<%= file._id %>" data-filename="<%= file.storedName %>"><%= file.originalName %></option>
+          <% }) %>
         </select>
-      
+
         <!-- Group selector -->
         <label for="group">Group:</label>
         <select id="group">
           <% groups.forEach(group => { %>
-            <option value="<%= group._id %>"<%= selectedGroup == group._id.toString() ? 'selected' : '' %>><%= group.name %></option>
+            <option value="<%= group._id %>" <%= selectedGroup == group._id.toString() ? 'selected' : '' %>><%= group.name %></option>
           <% }) %>
         </select>
-      
-        <!-- File Upload Form -->
-        <form action="/file/upload" method="POST" enctype="multipart/form-data" style="margin-top: 1em;">
-          <label for="uploadedFile">Upload File:</label>
-          <input type="file" name="uploadedFile" id="uploadedFile" required style="margin-bottom: 0.5em;">
-          <button type="submit">Upload</button>
+
+        <!-- Citation Section -->
+        <div class="citation-section" style="margin-top: 1em;">
+          <label><strong>Citation:</strong></label>
+          <div id="citationText"><em>Select a file to view citation.</em></div>
+          <textarea id="citationInput" style="width: 100%; display: none;"></textarea>
+          <button type="button" id="editCitationBtn" disabled>Edit Citation</button>
+          <button type="button" id="saveCitationBtn" style="display: none;">Save</button>
+        </div>
+
+        <form action="/file/<%= files[0]._id %>/replace" method="POST" enctype="multipart/form-data" style="margin-top: 1em;">
+          <label>Upload Revised File:</label>
+          <input type="file" name="uploadedFile" accept=".pdf" required>
+          <button type="submit">Replace</button>
         </form>
-      
-        <!-- Future: Additional settings -->
-        <!-- <button style="margin-top: 1em;">Settings</button> -->
+        
+
+        <div style="margin-top: 1.5em;">
+          <form action="/documents" method="GET">
+            <button type="submit">Add Document</button>
+          </form>
+        </div>
       </div>
+
       <%- include('../partials/chat', { groups: groups }) %>
     </div>
 
-    <!-- Main Document Viewer -->
     <div class="main-content">
-      <% if (files && files.length > 0) { %>
-        <iframe id="docViewer" src="/preview/<%= files[0].storedName %>"></iframe>
-        <% } else { %>
+      <% if (files.length > 0) { %>
+        <iframe id="docViewer" src="/preview/<%= files[0].storedName %>?t=<%= Date.now() %>"></iframe>
+      <% } else { %>
         <p>No document selected.</p>
       <% } %>
     </div>
   </div>
 
- 
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const docSelector = document.getElementById('docSelector');
-    let groupSelector = document.getElementById('group');
+    const groupSelector = document.getElementById('group');
     const viewer = document.getElementById('docViewer');
 
+    const editBtn = document.getElementById('editCitationBtn');
+    const saveBtn = document.getElementById('saveCitationBtn');
+    const citationText = document.getElementById('citationText');
+    const citationInput = document.getElementById('citationInput');
+
+    let currentFileId = null;
+    let currentFilename = null;
+
+    async function loadCitation(fileId) {
+      const res = await fetch(`/file/${fileId}/citation`);
+      const data = await res.json();
+      citationText.innerHTML = data.citation?.trim() ? `<span>${data.citation}</span>` : `<em>Citation missing.</em>`;
+      citationInput.value = data.citation || "";
+      editBtn.disabled = false;
+      currentFileId = fileId;
+    }
+
+    if (docSelector && viewer) {
+      const firstOption = docSelector.querySelector('option');
+      if (firstOption) {
+        loadCitation(firstOption.value);
+        currentFilename = firstOption.dataset.filename;
+      }
+
+      docSelector.addEventListener('change', () => {
+        const selectedOption = docSelector.options[docSelector.selectedIndex];
+        const fileId = selectedOption.value;
+        currentFilename = selectedOption.dataset.filename;
+
+        viewer.src = '/preview/' + currentFilename + '?t=' + Date.now();
+        loadCitation(fileId);
+      });
+    }
+
+    editBtn.addEventListener('click', () => {
+      citationText.style.display = 'none';
+      citationInput.style.display = 'block';
+      editBtn.style.display = 'none';
+      saveBtn.style.display = 'inline-block';
+    });
+
+    saveBtn.addEventListener('click', async () => {
+      const citation = citationInput.value.trim();
+
+      const response = await fetch(`/file/${currentFileId}/update-citation`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ citation })
+      });
+
+      if (response.ok) {
+        citationText.innerHTML = citation ? `<span>${citation}</span>` : "<em>Citation missing.</em>";
+        citationText.style.display = 'block';
+        citationInput.style.display = 'none';
+        saveBtn.style.display = 'none';
+        editBtn.style.display = 'inline-block';
+      } else {
+        alert("Failed to update citation");
+      }
+    });
+
     groupSelector.addEventListener('change', async () => {
-      let selectedGroup = groupSelector.value;
-      const response = await fetch(`file?group=${selectedGroup}`, {
-        headers: {'X-Requested-With': 'XMLHttpRequest'}
+      const selectedGroup = groupSelector.value;
+      const response = await fetch(`/file?group=${selectedGroup}`, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
       });
       const data = await response.json();
       docSelector.innerHTML = '';
+
       data.files.forEach(file => {
         const option = document.createElement('option');
-        option.value = file.storedName;
+        option.value = file._id;
+        option.dataset.filename = file.storedName;
         option.textContent = file.originalName;
         docSelector.appendChild(option);
       });
 
       if (data.files.length > 0) {
-        viewer.src = `/preview/${data.files[0].storedName}`;
+        viewer.src = `/preview/${data.files[0].storedName}?t=${Date.now()}`;
+        loadCitation(data.files[0]._id);
+      } else {
+        viewer.src = '';
+        citationText.innerHTML = '<em>No documents in this group.</em>';
+        editBtn.disabled = true;
       }
-
     });
-
-    if (docSelector && viewer) {
-      docSelector.addEventListener('change', () => {
-        viewer.src = '/preview/' + docSelector.value;
-      });
-    }
-
-    
-
   </script>
 </body>
 </html>

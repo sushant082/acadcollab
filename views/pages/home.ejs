@@ -10,6 +10,11 @@
   <style>
     body {
       font-family: 'Roboto', sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+
+    .home-wrapper {
       text-align: center;
       padding: 2em;
     }
@@ -61,21 +66,23 @@
 <body>
   <%- include('../partials/header') %>
 
-  <div class="dashboard-buttons">
-    <a class="dashboard-button" href="/file">
-      <img src="/images/documents-icon.png" alt="Documents">
-      <span>Document Viewer</span>
-    </a>
+  <div class="home-wrapper">
+    <div class="dashboard-buttons">
+      <a class="dashboard-button" href="/file">
+        <img src="/images/documents-icon.png" alt="Documents">
+        <span>Document Viewer</span>
+      </a>
 
-    <a class="dashboard-button" href="/groups">
-      <img src="/images/groups-icon.png" alt="Groups">
-      <span>Groups</span>
-    </a>
+      <a class="dashboard-button" href="/groups">
+        <img src="/images/groups-icon.png" alt="Groups">
+        <span>Groups</span>
+      </a>
 
-    <a class="dashboard-button" href="/profile">
-      <img src="/images/profile-icon.png" alt="Profile">
-      <span>Profile</span>
-    </a>
+      <a class="dashboard-button" href="/profile">
+        <img src="/images/profile-icon.png" alt="Profile">
+        <span>Profile</span>
+      </a>
+    </div>
   </div>
 </body>
 </html>

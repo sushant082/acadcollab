@@ -55,7 +55,7 @@
         <thead>
           <tr>
             <th>Original Name</th>
-            <th>Stored Name</th>
+            <!-- <th>Stored Name</th> -->
             <th>Upload Date</th>
             <th>Owner</th>
             <th>Group</th>
@@ -67,17 +67,22 @@
           <% documents.forEach(doc => { %>
             <tr data-filename="<%= doc.originalName.toLowerCase() %> <%= doc.storedName.toLowerCase() %>" id="doc-<%= doc._id %>">
               <td><%= doc.originalName %></td>
-              <td><%= doc.storedName %></td>
+              <!-- <td><%= doc.storedName %></td> -->
               <td><%= new Date(doc.uploadDate).toLocaleDateString() %></td>
               <td><%= doc.owner || 'unknown' %></td>
               <td><%= doc.group?.name || 'Unassigned' %></td>
               <td>
                 <form action="/file/<%= doc._id %>/assign-group" method="POST">
                   <select name="groupId">
+                    <% if (!doc.group) { %>
+                      <option selected disabled>No assigned group</option>
+                    <% } %>
                     <% groups.forEach(group => { %>
-                      <option value="<%= group._id %>"><%= group.name %></option>
+                      <option value="<%= group._id %>" <%= doc.group && doc.group._id?.toString() === group._id.toString() ? 'selected' : '' %>>
+                        <%= group.name %>
+                      </option>
                     <% }) %>
-                  </select>
+                  </select>               
                   <button type="submit">Assign</button>
                 </form>
               </td>
