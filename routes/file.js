@@ -81,6 +81,18 @@ module.exports = (gfs, upload, db) => {
     });
   });
 
+  router.get('/file/:id/citation', async (req, res) => {
+    try {
+      const file = await fileModel.findById(req.params.id);
+      if (!file) return res.status(404).json({ citation: '' });
+      res.json({ citation: file.citation || '' });
+    } catch (err) {
+      console.error("Error fetching citation:", err);
+      res.status(500).json({ citation: '' });
+    }
+  });
+  
+
   // Edit file
   router.get('/file/:id/edit', async (req, res) => {
     try {
@@ -158,6 +170,22 @@ module.exports = (gfs, upload, db) => {
       res.status(500).send("Could not save file");
     }
   });
+  
+
+  router.post('/file/:id/update-citation', async (req, res) => {
+    const fileId = req.params.id;
+    const citation = req.body.citation;
+  
+    try {
+      await fileModel.findByIdAndUpdate(fileId, { citation });
+      res.status(200).json({ message: "Citation updated" });
+    } catch (err) {
+      console.error("Error updating citation:", err);
+      res.status(500).json({ error: "Failed to update citation" });
+    }
+  });
+  
+  
 
   // Update metadata
   router.post("/file/update-metadata", async (req, res) => {
