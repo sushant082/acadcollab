@@ -12,6 +12,7 @@ router.get("/chat", async (req, res) => {
     });
 });
 
+// chat route with group
 router.get('/chat/messages/:groupId', async(req, res) => {
     const {groupId} = req.params;
     const messages = await messageModel.find({groupId}).sort({timestamp: 1});

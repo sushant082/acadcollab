@@ -20,6 +20,7 @@
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
+    // variables for chat messages
     const chatGroupSelector = document.getElementById('chatGroupSelector');
     const chatMessages = document.getElementById('chatMessages');
     const chatInput = document.getElementById('chatInput');
@@ -28,16 +29,19 @@
     const chatGroupTitle = document.getElementById('chatGroupTitle');
     let currentGroupId = chatGroupSelector?.value || null;
 
+    // connect to socket with username
     const socket = io({
         auth: { username: "<%= user?.username %>"}
     });
 
+    // allow for chat if the user has a group
     function updateChatUIState() {
         const validGroup = currentGroupId && currentGroupId.trim() != '';
         chatInput.disabled = !validGroup;
         chatSendButton.disabled = !validGroup;
     }
 
+    // recieve messages and write to html
     async function fetchMessages(groupId) {
         const res = await fetch(`/chat/messages/${groupId}`);
         const messages = await res.json();
@@ -50,10 +54,12 @@
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
+    // take care of first group join
     socket.emit('joinGroup', currentGroupId);
     fetchMessages(currentGroupId);
     updateChatUIState();
 
+    // change chat group on group change
     chatGroupSelector.addEventListener('change', () => {
         const newGroupId = chatGroupSelector.value;
         if(currentGroupId != newGroupId) {
@@ -66,6 +72,7 @@
         }
     });
 
+    // send message to server on submit
     chatForm.addEventListener('submit', (e) => {
         e.preventDefault();
         const message = chatInput.value.trim();
@@ -75,6 +82,7 @@
         chatInput.value = '';
     });
 
+    // recieve message from server
     socket.on('groupMessage', ({sender, message, timestamp }) => {
         const msgDiv = document.createElement('div');
         msgDiv.textContent = `[${new Date(timestamp).toLocaleTimeString()}] ${sender}: ${message}`;

@@ -72,6 +72,7 @@ app.use(require('./routes/documents'));
 io.on("connection", function (socket) {
     let currentRoom = null;
 
+    // change groups
     socket.on('joinGroup', (groupId) => {
         if (currentRoom) {
             socket.leave(currentRoom);
@@ -80,11 +81,13 @@ io.on("connection", function (socket) {
         socket.join(groupId);
     });
 
+    // change groups
     socket.on("leaveGroup", (groupId) => {
         socket.leave(groupId);
         if (currentRoom == groupId) currentRoom = null;
     });
 
+    // on message send to group 
     socket.on("groupMessage", async ({ groupId, message }) => {
         const timestamp = Date.now();
         const sender = socket.handshake.auth?.username || "User";
@@ -94,6 +97,7 @@ io.on("connection", function (socket) {
         io.to(groupId).emit("groupMessage", { sender, message, timestamp });
     });
 
+    // depr. -- chat message to entire server
     socket.on("chat message", function (msg) {
         io.emit("chat message", msg);
     });
